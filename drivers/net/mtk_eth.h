@@ -11,7 +11,18 @@
 
 /* Frame Engine Register Bases */
 #include <linux/bitops.h>
+
+#if defined(CONFIG_TARGET_MT7986) || defined(CONFIG_TARGET_MT7981)
+#define CONFIG_MEDIATEK_NETSYS_V2 1
+#endif
+
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+#define PDMA_BASE                       0x6000
+#define FE_GLO_MISC_REG			0x124
+#define PDMA_VER_V2			BIT(4)
+#else
 #define PDMA_BASE			0x0800
+#endif
 #define GDMA1_BASE			0x0500
 #define GDMA2_BASE			0x1500
 #define GMAC_BASE			0x10000
@@ -44,6 +55,9 @@
 
 #define SGMSYS_QPHY_PWR_STATE_CTRL	0xe8
 #define SGMII_PHYA_PWD			BIT(4)
+
+#define SGMSYS_QPHY_WRAP_CTRL		0xec
+#define SGMII_PN_SWAP_TX_RX		0x03
 
 #define SGMSYS_GEN2_SPEED		0x2028
 #define SGMSYS_GEN2_SPEED_V2		0x128

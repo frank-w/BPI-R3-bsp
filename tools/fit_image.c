@@ -24,6 +24,42 @@
 
 static image_header_t header;
 
+static int fit_add_public_key(struct image_tool_params *params, size_t size_inc)
+{
+#ifdef CONFIG_FIT_SIGNATURE
+	int destfd = 0;
+	void *dest_blob = NULL;
+	off_t destfd_size = 0;
+	struct stat dest_sbuf;
+	int ret = 0;
+	const char *required = params->required == NULL ? "conf" : params->required;
+	const char *algo = params->algo == NULL ? "sha1,rsa2048" : params->algo;
+
+	destfd = mmap_fdt(params->cmdname, params->keydest, size_inc,
+			  &dest_blob, &dest_sbuf, false,
+			  false);
+	if (destfd < 0)
+		return -EIO;
+
+	destfd_size = dest_sbuf.st_size;
+
+	ret = fit_add_public_key_info(params->keydir, params->keyname,
+				      dest_blob, required,
+				      algo, params->cmdname);
+
+	munmap(dest_blob, destfd_size);
+	close(destfd);
+
+	return ret;
+#else
+	fprintf (stderr,
+		 "***Error: FIT Siganture Verification was disabled\n"
+		 "***for using mkimage -I option, please enable it first!\n");
+
+	return EXIT_FAILURE;
+#endif
+}
+
 static int fit_add_file_data(struct image_tool_params *params, size_t size_inc,
 			     const char *tmpfile)
 {
@@ -679,6 +715,17 @@ static int fit_handle_file(struct image_tool_params *params)
 	char cmd[MKIMAGE_MAX_DTC_CMDLINE_LEN];
 	size_t size_inc;
 	int ret;
+
+	/* add public key to FDT
+	   will keep trying with bigger space when return -ENOSPC */
+	if (params->Iflag) {
+		for (size_inc = 0; size_inc < 64 * 1024; size_inc += 1024) {
+			ret = fit_add_public_key(params, size_inc);
+			if (!ret || ret != -ENOSPC)
+				break;
+		}
+		return ret;
+	}
 
 	/* Flattened Image Tree (FIT) format  handling */
 	debug ("FIT format handling\n");

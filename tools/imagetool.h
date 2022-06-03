@@ -49,6 +49,7 @@ struct image_tool_params {
 	int eflag;
 	int fflag;
 	int iflag;
+	int Iflag;		/* MTK: Only writing public key to mkimage */
 	int lflag;
 	int pflag;
 	int vflag;
@@ -69,9 +70,12 @@ struct image_tool_params {
 	char *cmdname;
 	const char *outfile;	/* Output filename */
 	const char *keydir;	/* Directory holding private keys */
+	const char *keyname;	/* MTK: Name of public key */
 	const char *keydest;	/* Destination .dtb for public key */
 	const char *keyfile;	/* Filename of private or public key */
 	const char *comment;	/* Comment to add to signature node */
+	const char *required;	/* MTK: Required to add to signature node */
+	const char *algo;	/* MTK: Algo to add to signature node */
 	/* Algorithm name to use for hashing/signing or NULL to use the one
 	 * specified in the its */
 	const char *algo_name;

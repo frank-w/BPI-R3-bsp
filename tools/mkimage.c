@@ -110,9 +110,10 @@ static void usage(const char *msg)
 		"          -B => align size in hex for FIT structure and header\n");
 #ifdef CONFIG_FIT_SIGNATURE
 	fprintf(stderr,
-		"Signing / verified boot options: [-k keydir] [-K dtb] [ -c <comment>] [-p addr] [-r] [-N engine]\n"
+		"Signing / verified boot options: [-k keydir] [-K dtb] [-I <keyname> [required [algo]]] [ -c <comment>] [-p addr] [-r] [-N engine]\n"
 		"          -k => set directory containing private keys\n"
 		"          -K => write public keys to this .dtb file\n"
+		"          -I => not signing only writing public key to dtb\n"
 		"          -G => use this signing key (in lieu of -k)\n"
 		"          -c => add comment in signature node\n"
 		"          -F => re-sign existing FIT image\n"
@@ -156,7 +157,7 @@ static void process_args(int argc, char **argv)
 	int opt;
 
 	while ((opt = getopt(argc, argv,
-		   "a:A:b:B:c:C:d:D:e:Ef:FG:k:i:K:ln:N:p:o:O:rR:qstT:vVx")) != -1) {
+		"a:A:b:B:c:C:d:D:e:Ef:FG:k:i:I:K:ln:N:p:o:O:rR:qstT:vVx")) != -1) {
 		switch (opt) {
 		case 'a':
 			params.addr = strtoull(optarg, &ptr, 16);
@@ -237,6 +238,11 @@ static void process_args(int argc, char **argv)
 			break;
 		case 'i':
 			params.fit_ramdisk = optarg;
+			break;
+		case 'I':
+			params.Iflag = 1;
+			params.keyname = optarg;
+			params.type = IH_TYPE_FLATDT;
 			break;
 		case 'k':
 			params.keydir = optarg;
@@ -337,8 +343,19 @@ static void process_args(int argc, char **argv)
 		params.type = type;
 	}
 
-	if (!params.imagefile)
-		usage("Missing output filename");
+	if (params.Iflag) {
+		if (optind < argc)
+			params.required = argv[optind++];
+
+		if (optind < argc)
+			params.algo= argv[optind++];
+
+		if (!params.keydir || !params.keydest)
+			usage("Missing keydir or dtb");
+	} else {
+		if (!params.imagefile)
+			usage("Missing output filename");
+	}
 }
 
 static void verify_image(const struct image_type_params *tparams)
@@ -436,6 +453,22 @@ int main(int argc, char **argv)
 
 		if (retval != EXIT_SUCCESS)
 			usage("Bad parameters for FIT image type");
+	}
+
+	/* add public key to FDT */
+	if (params.Iflag) {
+		if (tparams->fflag_handle)
+			retval = tparams->fflag_handle(&params);
+
+		if (retval != EXIT_SUCCESS) {
+			fprintf(stderr, "%s: add public key FAIL (%d)\n",
+				params.cmdname, retval);
+			exit (retval);
+		} else {
+			printf ("%s: add public key SUCCESS\n",
+				params.cmdname);
+			exit (EXIT_SUCCESS);
+		}
 	}
 
 	if (params.lflag || params.fflag) {

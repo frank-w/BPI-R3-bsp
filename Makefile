@@ -37,7 +37,7 @@ else ifeq ("riscv32", $(MK_ARCH))
 else ifeq ("riscv64", $(MK_ARCH))
   export HOST_ARCH=$(HOST_ARCH_RISCV64)
 endif
-undefine MK_ARCH
+MK_ARCH=
 
 # Avoid funny character set dependencies
 unexport LC_ALL
@@ -1150,11 +1150,20 @@ endif
 	@# disabling OF_BOARD.
 	$(call cmd,ofcheck,$(KCONFIG_CONFIG))
 
+
+ifneq ($(FIT_KEY),)
+FIT_KEY_DIR := $(patsubst %/,%,$(dir $(FIT_KEY)))
+FIT_KEY_NAME := $(basename $(notdir $(FIT_KEY)))
+endif
+
 PHONY += dtbs
 dtbs: dts/dt.dtb
 	@:
 dts/dt.dtb: u-boot
 	$(Q)$(MAKE) $(build)=dts dtbs
+ifneq ($(FIT_KEY),)
+	$(objtree)/tools/mkimage -k $(FIT_KEY_DIR) -K $@ -I $(FIT_KEY_NAME)
+endif
 
 quiet_cmd_copy = COPY    $@
       cmd_copy = cp $< $@

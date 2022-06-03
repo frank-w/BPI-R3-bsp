@@ -13,24 +13,31 @@
 #include <asm/io.h>
 #include <linux/bitops.h>
 
-#define MTK_GPT4_CTRL	0x40
-#define MTK_GPT4_CLK	0x44
-#define MTK_GPT4_CNT	0x48
+#define MTK_GPT4_OFFSET_V1	0x40
+#define MTK_GPT4_OFFSET_V2	0x80
 
-#define GPT4_ENABLE	BIT(0)
-#define GPT4_CLEAR	BIT(1)
-#define GPT4_FREERUN	GENMASK(5, 4)
-#define GPT4_CLK_SYS	0x0
-#define GPT4_CLK_DIV1	0x0
+#define MTK_GPT_CLK		0x4
+#define MTK_GPT_CNT		0x8
+
+#define GPT_ENABLE	BIT(0)
+#define GPT_CLEAR	BIT(1)
+
+enum mtk_gpt_ver {
+	MTK_GPT_V1,
+	MTK_GPT_V2
+};
 
 struct mtk_timer_priv {
 	void __iomem *base;
+	unsigned int gpt4_offset;
 };
 
 static u64 mtk_timer_get_count(struct udevice *dev)
 {
 	struct mtk_timer_priv *priv = dev_get_priv(dev);
-	u32 val = readl(priv->base + MTK_GPT4_CNT);
+	unsigned int gpt4_offset = priv->gpt4_offset;
+
+	u32 val = readl(priv->base + gpt4_offset + MTK_GPT_CNT);
 
 	return timer_conv_64(val);
 }
@@ -40,9 +47,20 @@ static int mtk_timer_probe(struct udevice *dev)
 	struct timer_dev_priv *uc_priv = dev_get_uclass_priv(dev);
 	struct mtk_timer_priv *priv = dev_get_priv(dev);
 	struct clk clk, parent;
-	int ret;
-
+	int ret, gpt_ver;
 	priv->base = dev_read_addr_ptr(dev);
+	gpt_ver = dev_get_driver_data(dev);
+
+	if (gpt_ver == MTK_GPT_V1) {
+		priv->gpt4_offset = MTK_GPT4_OFFSET_V1;
+		writel(0x31, priv->base + priv->gpt4_offset);
+		writel(0, priv->base + priv->gpt4_offset + MTK_GPT_CLK);
+	}
+	else {
+		priv->gpt4_offset = MTK_GPT4_OFFSET_V2;
+		writel(0x61, priv->base + priv->gpt4_offset);
+	}
+
 	if (!priv->base)
 		return -ENOENT;
 
@@ -61,16 +79,6 @@ static int mtk_timer_probe(struct udevice *dev)
 	if (!uc_priv->clock_rate)
 		return -EINVAL;
 
-	/*
-	 * Initialize the timer:
-	 * 1. set clock source to system clock with clock divider setting to 1
-	 * 2. set timer mode to free running
-	 * 3. reset timer counter to 0 then enable the timer
-	 */
-	writel(GPT4_CLK_SYS | GPT4_CLK_DIV1, priv->base + MTK_GPT4_CLK);
-	writel(GPT4_FREERUN | GPT4_CLEAR | GPT4_ENABLE,
-	       priv->base + MTK_GPT4_CTRL);
-
 	return 0;
 }
 
@@ -79,8 +87,10 @@ static const struct timer_ops mtk_timer_ops = {
 };
 
 static const struct udevice_id mtk_timer_ids[] = {
-	{ .compatible = "mediatek,timer" },
-	{ .compatible = "mediatek,mt6577-timer" },
+	{ .compatible = "mediatek,timer", .data = MTK_GPT_V1 },
+	{ .compatible = "mediatek,mt6577-timer", .data = MTK_GPT_V1 },
+	{ .compatible = "mediatek,mt7981-timer", .data = MTK_GPT_V2 },
+	{ .compatible = "mediatek,mt7986-timer", .data = MTK_GPT_V2 },
 	{ }
 };
 

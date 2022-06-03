@@ -70,10 +70,17 @@ struct pdma_rxd_info1 {
 };
 
 struct pdma_rxd_info2 {
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+	u32 RSV0 : 6;
+	u32 RSV1 : 2;
+	u32 PLEN0 : 16;
+	u32 RSV2 : 6;
+#else
 	u32 PLEN1 : 14;
 	u32 LS1 : 1;
 	u32 UN_USED : 1;
 	u32 PLEN0 : 14;
+#endif
 	u32 LS0 : 1;
 	u32 DDONE : 1;
 };
@@ -100,6 +107,12 @@ struct pdma_rxdesc {
 	struct pdma_rxd_info2 rxd_info2;
 	struct pdma_rxd_info3 rxd_info3;
 	struct pdma_rxd_info4 rxd_info4;
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+	u32 rxd_info5;
+	u32 rxd_info6;
+	u32 rxd_info7;
+	u32 rxd_info8;
+#endif
 };
 
 struct pdma_txd_info1 {
@@ -107,10 +120,16 @@ struct pdma_txd_info1 {
 };
 
 struct pdma_txd_info2 {
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+	u32 RSV : 8;
+	u32 SDL0 : 16;
+	u32 RSV2 : 6;
+#else
 	u32 SDL1 : 14;
 	u32 LS1 : 1;
 	u32 BURST : 1;
 	u32 SDL0 : 14;
+#endif
 	u32 LS0 : 1;
 	u32 DDONE : 1;
 };
@@ -123,17 +142,38 @@ struct pdma_txd_info4 {
 	u32 VLAN_TAG : 16;
 	u32 INS : 1;
 	u32 RESV : 2;
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+	u32 UDF : 5;
+	u32 FPORT : 4;
+#else
 	u32 UDF : 6;
 	u32 FPORT : 3;
+#endif
 	u32 TSO : 1;
 	u32 TUI_CO : 3;
 };
+
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+struct pdma_txd_info5 {
+	u32 RSV0 : 16;
+	u32 FPORT : 4;
+	u32 RSV1 : 12;
+};
+#endif
 
 struct pdma_txdesc {
 	struct pdma_txd_info1 txd_info1;
 	struct pdma_txd_info2 txd_info2;
 	struct pdma_txd_info3 txd_info3;
+#if !defined(CONFIG_MEDIATEK_NETSYS_V2)
 	struct pdma_txd_info4 txd_info4;
+#else
+	u32 txd_info4;
+	struct pdma_txd_info5 txd_info5;
+	u32 txd_info6;
+	u32 txd_info7;
+	u32 txd_info8;
+#endif
 };
 
 enum mtk_switch {
@@ -145,7 +185,9 @@ enum mtk_switch {
 enum mtk_soc {
 	SOC_MT7623,
 	SOC_MT7629,
-	SOC_MT7622
+	SOC_MT7622,
+	SOC_MT7986,
+	SOC_MT7981
 };
 
 struct mtk_eth_priv {
@@ -174,6 +216,7 @@ struct mtk_eth_priv {
 	int force_mode;
 	int speed;
 	int duplex;
+	int pn_swap;
 
 	struct phy_device *phydev;
 	int phy_interface;
@@ -1105,6 +1148,11 @@ static void mtk_sgmii_init(struct mtk_eth_priv *priv)
 	/* SGMII force mode setting */
 	writel(SGMII_FORCE_MODE, priv->sgmii_base + SGMSYS_SGMII_MODE);
 
+	/* SGMII PN SWAP setting */
+	if(priv->pn_swap)
+		clrsetbits_le32(priv->sgmii_base + SGMSYS_QPHY_WRAP_CTRL,
+				SGMII_PN_SWAP_TX_RX, SGMII_PN_SWAP_TX_RX);
+
 	/* Release PHYA power down state */
 	clrsetbits_le32(priv->sgmii_base + SGMSYS_QPHY_PWR_STATE_CTRL,
 			SGMII_PHYA_PWD, 0);
@@ -1202,7 +1250,11 @@ static void mtk_eth_fifo_init(struct mtk_eth_priv *priv)
 	for (i = 0; i < NUM_TX_DESC; i++) {
 		priv->tx_ring_noc[i].txd_info2.LS0 = 1;
 		priv->tx_ring_noc[i].txd_info2.DDONE = 1;
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+		priv->tx_ring_noc[i].txd_info5.FPORT = priv->gmac_id + 1;
+#else
 		priv->tx_ring_noc[i].txd_info4.FPORT = priv->gmac_id + 1;
+#endif
 
 		priv->tx_ring_noc[i].txd_info1.SDP0 = virt_to_phys(pkt_base);
 		pkt_base += PKTSIZE_ALIGN;
@@ -1237,6 +1289,10 @@ static int mtk_eth_start(struct udevice *dev)
 	udelay(1000);
 	reset_deassert(&priv->rst_fe);
 	mdelay(10);
+
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+        clrsetbits_le32(priv->fe_base + FE_GLO_MISC_REG, PDMA_VER_V2, PDMA_VER_V2);
+#endif
 
 	/* Packets forward to PDMA */
 	mtk_gdma_write(priv, priv->gmac_id, GDMA_IG_CTRL_REG, GDMA_FWD_TO_CPU);
@@ -1488,6 +1544,11 @@ static int mtk_eth_of_to_plat(struct udevice *dev)
 			dev_err(dev, "Unable to find sgmii\n");
 			return -ENODEV;
 		}
+
+		if(ofnode_read_bool(args.node, "pn_swap"))
+			priv->pn_swap=1;
+		else
+			priv->pn_swap=0;
 	}
 
 	/* check for switch first, otherwise phy will be used */
@@ -1542,6 +1603,8 @@ static const struct udevice_id mtk_eth_ids[] = {
 	{ .compatible = "mediatek,mt7629-eth", .data = SOC_MT7629 },
 	{ .compatible = "mediatek,mt7623-eth", .data = SOC_MT7623 },
 	{ .compatible = "mediatek,mt7622-eth", .data = SOC_MT7622 },
+	{ .compatible = "mediatek,mt7986-eth", .data = SOC_MT7986 },
+	{ .compatible = "mediatek,mt7981-eth", .data = SOC_MT7981 },
 	{}
 };
 

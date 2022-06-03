@@ -11,6 +11,8 @@
 #define CLK_XTAL			0
 #define MHZ				(1000 * 1000)
 
+#define CLK_BYPASS_XTAL			BIT(0)
+
 #define HAVE_RST_BAR			BIT(0)
 #define CLK_DOMAIN_SCPSYS		BIT(0)
 #define CLK_MUX_SETCLR_UPD		BIT(1)
@@ -23,7 +25,8 @@
 
 #define CLK_PARENT_APMIXED		BIT(4)
 #define CLK_PARENT_TOPCKGEN		BIT(5)
-#define CLK_PARENT_MASK			GENMASK(5, 4)
+#define CLK_PARENT_INFRASYS		BIT(6)
+#define CLK_PARENT_MASK			GENMASK(6, 4)
 
 #define ETHSYS_HIFSYS_RST_CTRL_OFS	0x34
 
@@ -197,14 +200,17 @@ struct mtk_clk_tree {
 	const struct mtk_fixed_clk *fclks;
 	const struct mtk_fixed_factor *fdivs;
 	const struct mtk_composite *muxes;
+	u32 flags;
 };
 
 struct mtk_clk_priv {
+	struct udevice *parent;
 	void __iomem *base;
 	const struct mtk_clk_tree *tree;
 };
 
 struct mtk_cg_priv {
+	struct udevice *parent;
 	void __iomem *base;
 	const struct mtk_clk_tree *tree;
 	const struct mtk_gate *gates;
@@ -212,6 +218,7 @@ struct mtk_cg_priv {
 
 extern const struct clk_ops mtk_clk_apmixedsys_ops;
 extern const struct clk_ops mtk_clk_topckgen_ops;
+extern const struct clk_ops mtk_clk_infrasys_ops;
 extern const struct clk_ops mtk_clk_gate_ops;
 
 int mtk_common_clk_init(struct udevice *dev,
