@@ -58,11 +58,12 @@ class gpt_image_file:
 
     def read_sector(self, number, count):
         self.device.seek(number * LBA_SIZE)
-        buf = self.device.read(count * LBA_SIZE)
+        buf = self.device.read(int(count) * LBA_SIZE)
         return buf
 
     def write_sector(self, offset, buf):
         self.device.seek(offset * LBA_SIZE)
+        if isinstance(buf,str): buf=buf.encode('latin1')
         self.device.write(buf)
 
 
@@ -202,11 +203,11 @@ class GPT:
             buf = self._serialize_gpt_table(gpt_entries, gpt_header)
         else:
             buf = self.get_part_table_area()
-        crc = self._unsigned32(zlib.crc32(buf))
+        crc = self._unsigned32(zlib.crc32(buf.encode('latin1')))
         return crc
 
     def _unsigned32(self, n):
-        return n & 0xFFFFFFFFL
+        return n & 0xFFFFFFFF
 
     def _serialize_gpt_table(self, gpt_entries, header=None):
         buf = ""
@@ -214,9 +215,9 @@ class GPT:
             header = self.get_gpt_header()
         total_table_size = header.table_entry_count * header.table_entry_size
         for entry in gpt_entries:
-            buf += entry.serialize()
+            buf += str(entry.serialize())
         if len(buf) < total_table_size:
-            buf = buf.ljust((total_table_size), str(unichr(0x00)))
+            buf = buf.ljust((total_table_size), str(chr(0x00)))
         return buf
 
     def _stringify_uuid(binary_uuid):

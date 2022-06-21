@@ -112,7 +112,7 @@ def read_gpt(path):
 def to_mtk_partition_name(name):
     new_name = ""
     for c in name:
-        new_name = new_name + c + str(unichr(0x00))
+        new_name = new_name + c + str(chr(0x00))
     return new_name
 
 
