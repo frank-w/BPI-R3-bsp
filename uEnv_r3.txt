@@ -1,0 +1,25 @@
+board=bpi-r3
+device=mmc
+partition=0:5
+bootenv=uEnv.txt
+
+fit=bpi-r3.itb
+
+loadaddr=0x46000000
+kaddr=0x46000000
+
+root=/dev/mmcblk0p6 rootfstype=ext4 rootwait
+console=ttyS0 earlycon=uart8250,mmio32,0x11002000
+bootopts=debug=7
+
+checkenv=test -e ${device} ${partition} ${bootenv}
+loadenvfile=if fatload ${device} ${partition} ${loadaddr} ${bootenv};then env import -t ${loadaddr} ${filesize};else echo "fatload (${bootenv}) failed";fi
+
+loadenv=if run checkenv;then run loadenvfile;fi
+resetenv=env default -a;printenv;
+
+loadkernel=fatload $device $partition $kaddr ${kernel}
+buildargs=setenv bootargs "board=${board} earlycon=uart8250,mmio32,0x11002000 ${bootopts}"
+#root=${root}
+#console=${console}
+newboot=run buildargs;if printenv fit;then setenv kernel ${fit};if run loadkernel; then bootm ${kaddr}; fi;fi;
