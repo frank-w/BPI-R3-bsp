@@ -1,14 +1,25 @@
 #!/bin/bash
+
+device=sd
+#device=emmc
+#device=spi-nand
+#device=spi-nor
+
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
-DEFCONFIG=mt7986a_sd_rfb_defconfig
-#DEFCONFIG=mt7986a_emmc_rfb_defconfig
+
+if [[ "$device" =~ (emmc|spi-nand|spi-nor) ]];then
+	dev=emmc
+else
+	dev=$device
+fi
+DEFCONFIG=mt7986a_bpi-r3-${dev}_defconfig
+DTS=mt7986a-bpi-r3-${dev}
+DTSFILE=arch/arm/dts/${DTS}.dts
+DTSIFILE=arch/arm/dts/mt7986.dtsi
 DEFCFGFILE=configs/$DEFCONFIG
 
-#DTSFILE=$(grep '^CONFIG_DEFAULT_DEVICE_TREE' $DEFCFGFILE | sed -e 's/^.*="\([a-z0-9_-]\+\)"$/arch\/arm\/dts\/\1.dts/')
-DTSFILE=arch/arm/dts/mt7986a-sd-rfb.dts
-DTSIFILE=arch/arm/dts/mt7986.dtsi
-
+echo "device: $device"
 case $1 in
 	"dts")
 		nano $DTSFILE
@@ -20,7 +31,15 @@ case $1 in
 		nano $DEFCFGFILE
 	;;
 	"importconfig")
+		echo "import $DEFCONFIG..."
+		rm ${DEFCFGFILE}.bak 2>/dev/null
+		if [[ "$device" == "emmc" ]];then
+			sed -i.bak 's/^#\(CONFIG_ENV\)/\1/' $DEFCFGFILE
+		fi
 		make $DEFCONFIG
+		if [[ -e ${DEFCFGFILE}.bak ]];then
+			mv ${DEFCFGFILE}{.bak,}
+		fi
 	;;
 	"config")
 		make menuconfig
