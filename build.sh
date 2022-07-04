@@ -5,6 +5,10 @@ device=sd
 #device=spi-nand
 #device=spi-nor
 
+if [[ -e build.conf ]];then
+	. build.conf
+fi
+
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
 
