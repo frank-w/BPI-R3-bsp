@@ -2,7 +2,7 @@
 
 device=sd
 #device=emmc
-device=spi-nand
+#device=spi-nand
 #device=spi-nor
 
 if [[ -e build.conf ]];then
@@ -17,7 +17,7 @@ if [[ "$device" =~ (emmc|spi-nand|spi-nor) ]];then
 else
 	dev=$device
 fi
-DEFCONFIG=mt7986a_bpi-r3-sd_defconfig
+DEFCONFIG=mt7986a_bpi-r3-${dev}_defconfig
 DTS=mt7986a-bpi-r3-${dev}
 DTSFILE=arch/arm/dts/${DTS}.dts
 DTSIFILE=arch/arm/dts/mt7986.dtsi
@@ -49,11 +49,7 @@ case $1 in
 		make menuconfig
 	;;
 	"build")
-		OWNOPTIONS="CONFIG_DEFAULT_DEVICE_TREE=\"${DTS}\" DEFAULT_FDT_FILE=\"${DTS}\""
-		if [[ "$device" =~ (spi-nand|spi-nor) ]];then
-			OWNOPTIONS="${OWNOPTIONS} CONFIG_ENV_IS_IN_MMC=n"
-		fi
-		make $OWNOPTIONS
+		make
 	;;
 	"")
 		$0 build
