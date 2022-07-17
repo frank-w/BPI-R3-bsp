@@ -5,9 +5,11 @@ bootenv=uEnv.txt
 
 fit=bpi-r3.itb
 #bootconf="#conf-2"
+#initrd=rootfs.cpio.zst
 
 loadaddr=0x46000000
 kaddr=0x46000000
+rdaddr=0x48000000
 
 root=/dev/mmcblk0p6 rootfstype=ext4 rootwait
 console=ttyS0 earlycon=uart8250,mmio32,0x11002000
@@ -23,4 +25,10 @@ loadkernel=fatload $device $partition $kaddr ${kernel}
 buildargs=setenv bootargs "board=${board} earlycon=uart8250,mmio32,0x11002000 ${bootopts}"
 #root=${root}
 #console=${console}
-newboot=run buildargs;if printenv fit;then setenv kernel ${fit};if run loadkernel; then bootm ${kaddr}${bootconf}; fi;fi;
+
+useusb=if usb info; then usb reset;else usb start;fi; setenv device usb;setenv partition 0:1;ls ${device} ${partition}
+
+useinitrd=setenv root "/dev/ram0 rw";setenv bootopts "${bootopts} initrd=${rdaddr},20M";fatload ${device} ${partition} ${rdaddr} ${initrd};
+checkrd=if printenv initrd;then run useinitrd;fi
+
+newboot=run checkrd buildargs;if printenv fit;then setenv kernel ${fit};if run loadkernel; then bootm ${kaddr}${bootconf}; fi;fi;
