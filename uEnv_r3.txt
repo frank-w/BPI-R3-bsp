@@ -2,6 +2,7 @@ board=bpi-r3
 device=mmc
 partition=0:5
 bootenv=uEnv.txt
+bootdevice=sdmmc
 
 fit=bpi-r3.itb
 #bootconf="#conf-2"

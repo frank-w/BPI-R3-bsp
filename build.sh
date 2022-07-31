@@ -40,6 +40,7 @@ case $1 in
 		if [[ "$device" == "emmc" ]];then
 			sed -i.bak 's/^#\(CONFIG_ENV\)/\1/' $DEFCFGFILE
 		fi
+		sed -i.bak 's/\(bootdevice=\).*/\1'${device}'/' uEnv_r3.txt
 		make $DEFCONFIG
 		if [[ -e ${DEFCFGFILE}.bak ]];then
 			mv ${DEFCFGFILE}{.bak,}
@@ -50,6 +51,7 @@ case $1 in
 	;;
 	"build")
 		make
+		mv uEnv_r3.txt{.bak,}
 	;;
 	"")
 		$0 build
