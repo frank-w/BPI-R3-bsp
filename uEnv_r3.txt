@@ -13,7 +13,7 @@ kaddr=0x46000000
 rdaddr=0x48000000
 
 root=/dev/mmcblk0p6 rootfstype=ext4 rootwait
-console=ttyS0 earlycon=uart8250,mmio32,0x11002000
+console=ttyS0,115200n1 earlycon=uart8250,mmio32,0x11002000
 bootopts=debug=7
 
 checkenv=test -e ${device} ${partition} ${bootenv}
